@@ -5,6 +5,16 @@ const PUBLIC_PATHS = ["/login", "/auth"]
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Ignore static assets, files with extensions, and Next internals
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.includes(".") ||
+    pathname.startsWith("/api")
+  ) {
+    return NextResponse.next()
+  }
+
   const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p))
 
   // Lit le token Supabase depuis les cookies
@@ -30,7 +40,7 @@ export function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 }
 
