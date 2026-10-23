@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Plus, LogOut, ChevronDown, Loader2, AlertCircle, Sparkles, Dna, Trophy, BarChart2 } from "lucide-react"
+import { Plus, LogOut, ChevronDown, Loader2, AlertCircle, Dna, Trophy, BarChart2 } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { ProfileCard } from "@/components/beddex/ProfileCard"
 import { ProfileModal } from "@/components/beddex/ProfileModal"
@@ -15,6 +15,7 @@ const DEFAULT_FILTERS: FilterState = {
   genre: "TOUS",
   noteMin: 1,
   tagSearch: "",
+  sortBy: "default",
 }
 
 function formatUsername(email?: string | null): string {
@@ -40,7 +41,7 @@ export function Dashboard() {
   const [signingOut, setSigningOut] = useState(false)
 
   const filteredProfiles = useMemo(() => {
-    return profiles.filter((p) => {
+    const list = profiles.filter((p) => {
       if (filters.genre !== "TOUS" && p.genre !== filters.genre) return false
       if (p.noteGlobale < filters.noteMin) return false
       if (filters.tagSearch) {
@@ -49,6 +50,14 @@ export function Dashboard() {
       }
       return true
     })
+
+    if (filters.sortBy === "power_desc") {
+      return [...list].sort((a, b) => b.noteGlobale - a.noteGlobale)
+    }
+    if (filters.sortBy === "power_asc") {
+      return [...list].sort((a, b) => a.noteGlobale - b.noteGlobale)
+    }
+    return list
   }, [profiles, filters])
 
   // Pokédex Trainer Stats calculation
@@ -227,7 +236,7 @@ export function Dashboard() {
               <span className="text-zinc-500">SYNCHRONISATION TERMINÉE</span>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 font-mono">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 font-mono">
               {/* Stat 1: Total specimens */}
               <div className="rounded-xl border border-white/10 bg-black/50 p-3 shadow-inner">
                 <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] font-bold uppercase">
@@ -270,19 +279,7 @@ export function Dashboard() {
                 </div>
               </div>
 
-              {/* Stat 4: Pokédex status */}
-              <div className="rounded-xl border border-white/10 bg-black/50 p-3 shadow-inner">
-                <div className="flex items-center gap-1.5 text-zinc-400 text-[10px] font-bold uppercase">
-                  <Sparkles className="size-3.5 text-pink-400" />
-                  <span>STATUT POKÉBALL</span>
-                </div>
-                <p className="mt-1 text-2xl font-black tracking-tight text-pink-300">
-                  MASTER BALL
-                </p>
-                <div className="mt-1 text-[10px] text-pink-400">
-                  DONNÉES ENTIÈREMENT SÉCURISÉES
-                </div>
-              </div>
+
             </div>
           </div>
         )}

@@ -1,17 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { User, Lock, Eye, EyeOff, Loader2, ArrowRight, Sparkles } from "lucide-react"
+import { User, Loader2, ArrowRight } from "lucide-react"
 import { useAuth } from "@/contexts/AuthContext"
-import { cn } from "@/lib/utils"
-
-type Mode = "login" | "register"
-
-interface FormErrors {
-  username?: string
-  password?: string
-  global?: string
-}
 
 function validateUsername(v: string) {
   const trimmed = v.trim()
@@ -23,74 +14,30 @@ function validateUsername(v: string) {
   }
 }
 
-function validatePassword(v: string) {
-  if (!v) return "Le code secret est requis."
-  if (v.length < 6) return "Minimum 6 caractères."
-}
-
-function toEmail(username: string): string {
-  const clean = username.trim().toLowerCase()
-  return clean.includes("@") ? clean : `${clean}@beddex.internal`
-}
-
 export default function LoginPage() {
-  const { signIn, signUp } = useAuth()
+  const { signInOrCreate } = useAuth()
 
-  const [mode, setMode] = useState<Mode>("login")
   const [username, setUsername] = useState("")
-  const [password, setPassword] = useState("")
-  const [showPwd, setShowPwd] = useState(false)
-  const [errors, setErrors] = useState<FormErrors>({})
+  const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [successMsg, setSuccessMsg] = useState("")
-
-  function validate(): FormErrors {
-    const errs: FormErrors = {}
-    const userErr = validateUsername(username)
-    if (userErr) errs.username = userErr
-    const pwdErr = validatePassword(password)
-    if (pwdErr) errs.password = pwdErr
-    return errs
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setSuccessMsg("")
-    const errs = validate()
-    setErrors(errs)
-    if (Object.keys(errs).length > 0) return
+    const validationError = validateUsername(username)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
 
+    setError("")
     setLoading(true)
-    const email = toEmail(username)
 
     try {
-      if (mode === "login") {
-        const error = await signIn(email, password)
-        if (error) {
-          setErrors({
-            global:
-              error.message === "Invalid login credentials"
-                ? "Identifiant ou code secret invalide."
-                : error.message,
-          })
-        } else {
-          window.location.href = "/"
-        }
+      const { error } = await signInOrCreate(username)
+      if (error) {
+        setError(error.message)
       } else {
-        const { error, needsConfirmation } = await signUp(email, password)
-        if (error) {
-          setErrors({
-            global:
-              error.message.toLowerCase().includes("already")
-                ? "Ce nom de dresseur est déjà enregistré."
-                : error.message,
-          })
-        } else if (needsConfirmation) {
-          setSuccessMsg("Dresseur enregistré ! Tu peux maintenant ouvrir le Pokédex.")
-          setMode("login")
-        } else {
-          window.location.href = "/"
-        }
+        window.location.href = "/"
       }
     } finally {
       setLoading(false)
@@ -132,39 +79,9 @@ export default function LoginPage() {
                 ACCÈS AU BEDDEX
               </h1>
               <p className="mt-0.5 text-[10px] text-zinc-400 uppercase font-bold">
-                AUTHENTIFICATION DRESSEUR REQUISE
+                ENTRE TON PSEUDO DE DRESSEUR
               </p>
             </div>
-
-            {/* Mode Switcher */}
-            <div className="mb-5 grid grid-cols-2 gap-1 rounded-xl border border-white/10 bg-black/60 p-1">
-              {(["login", "register"] as const).map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  onClick={() => {
-                    setMode(m)
-                    setErrors({})
-                    setSuccessMsg("")
-                  }}
-                  className={cn(
-                    "rounded-lg py-1.5 text-[11px] font-black uppercase transition-all duration-200 cursor-pointer",
-                    mode === m
-                      ? "bg-red-600 text-white shadow-[0_0_10px_rgba(239,68,68,0.5)]"
-                      : "text-zinc-400 hover:text-white"
-                  )}
-                >
-                  {m === "login" ? "CONNEXION" : "NOUVEAU DRESSEUR"}
-                </button>
-              ))}
-            </div>
-
-            {/* Success message */}
-            {successMsg && (
-              <div className="mb-4 rounded-xl border border-emerald-500/40 bg-emerald-950/40 p-2.5 text-xs text-emerald-300 font-bold">
-                {successMsg}
-              </div>
-            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
@@ -182,54 +99,18 @@ export default function LoginPage() {
                     value={username}
                     onChange={(e) => {
                       setUsername(e.target.value)
-                      setErrors((p) => ({ ...p, username: undefined }))
+                      setError("")
                     }}
                     placeholder="ex : Sacha, Antho..."
                     className="h-10 w-full rounded-xl border border-white/15 bg-black/80 pl-9 pr-3 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors focus:border-cyan-400 uppercase font-mono"
                   />
                 </div>
-                {errors.username && (
-                  <p className="text-[10px] text-rose-400 font-bold">{errors.username}</p>
-                )}
               </div>
 
-              {/* Password */}
-              <div className="space-y-1">
-                <label htmlFor="password" className="text-[10px] font-bold tracking-wider uppercase text-cyan-400">
-                  CODE SECRET (MOT DE PASSE)
-                </label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-cyan-400" />
-                  <input
-                    id="password"
-                    type={showPwd ? "text" : "password"}
-                    autoComplete={mode === "login" ? "current-password" : "new-password"}
-                    value={password}
-                    onChange={(e) => {
-                      setPassword(e.target.value)
-                      setErrors((p) => ({ ...p, password: undefined }))
-                    }}
-                    placeholder="••••••••"
-                    className="h-10 w-full rounded-xl border border-white/15 bg-black/80 pl-9 pr-9 text-xs text-white placeholder:text-zinc-600 outline-none transition-colors focus:border-cyan-400 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPwd((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-cyan-300 cursor-pointer"
-                    aria-label={showPwd ? "Masquer" : "Afficher"}
-                  >
-                    {showPwd ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-[10px] text-rose-400 font-bold">{errors.password}</p>
-                )}
-              </div>
-
-              {/* Global error */}
-              {errors.global && (
+              {/* Error */}
+              {error && (
                 <div className="rounded-xl border border-rose-500/40 bg-rose-950/40 p-2.5 text-xs text-rose-300 font-bold">
-                  {errors.global}
+                  {error}
                 </div>
               )}
 
@@ -243,7 +124,7 @@ export default function LoginPage() {
                   <Loader2 className="size-4 animate-spin" />
                 ) : (
                   <>
-                    <span>{mode === "login" ? "OUVRIR LE BEDDEX" : "CRÉER MON POKÉDEX"}</span>
+                    <span>OUVRIR LE BEDDEX</span>
                     <ArrowRight className="size-4 stroke-[3]" />
                   </>
                 )}

@@ -1,15 +1,25 @@
 "use client"
 
 import { useState } from "react"
-import { SlidersHorizontal, X, Search, Sparkles, Filter } from "lucide-react"
+import {
+  SlidersHorizontal,
+  X,
+  Search,
+  Sparkles,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+} from "lucide-react"
 import { Slider } from "@/components/ui/slider"
 import { cn } from "@/lib/utils"
 import type { Genre } from "@/types/profile"
+
+export type SortOrder = "default" | "power_desc" | "power_asc"
 
 export interface FilterState {
   genre: Genre | "TOUS"
   noteMin: number
   tagSearch: string
+  sortBy: SortOrder
 }
 
 interface FilterBarProps {
@@ -29,10 +39,13 @@ export function FilterBar({ filters, onChange, totalCount, filteredCount }: Filt
   const [expanded, setExpanded] = useState(false)
 
   const isFiltered =
-    filters.genre !== "TOUS" || filters.noteMin > 1 || filters.tagSearch !== ""
+    filters.genre !== "TOUS" ||
+    filters.noteMin > 1 ||
+    filters.tagSearch !== "" ||
+    filters.sortBy !== "default"
 
   function reset() {
-    onChange({ genre: "TOUS", noteMin: 1, tagSearch: "" })
+    onChange({ genre: "TOUS", noteMin: 1, tagSearch: "", sortBy: "default" })
   }
 
   return (
@@ -79,6 +92,48 @@ export function FilterBar({ filters, onChange, totalCount, filteredCount }: Filt
           />
         </div>
 
+        {/* Sort: Puissance Max / Min */}
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-zinc-950/80 border border-white/10">
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...filters,
+                sortBy: filters.sortBy === "power_desc" ? "default" : "power_desc",
+              })
+            }
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer",
+              filters.sortBy === "power_desc"
+                ? "bg-amber-500 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] font-black"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            )}
+            title="Trier par puissance maximale (du plus fort au moins fort)"
+          >
+            <ArrowDownWideNarrow className="size-3.5" />
+            <span>PUISSANCE MAX</span>
+          </button>
+          <button
+            type="button"
+            onClick={() =>
+              onChange({
+                ...filters,
+                sortBy: filters.sortBy === "power_asc" ? "default" : "power_asc",
+              })
+            }
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[11px] font-bold tracking-wider uppercase transition-all duration-200 cursor-pointer",
+              filters.sortBy === "power_asc"
+                ? "bg-amber-500 text-zinc-950 shadow-[0_0_12px_rgba(245,158,11,0.5)] font-black"
+                : "text-zinc-400 hover:text-white hover:bg-white/5"
+            )}
+            title="Trier par puissance minimale (du moins fort au plus fort)"
+          >
+            <ArrowUpNarrowWide className="size-3.5" />
+            <span>PUISSANCE MIN</span>
+          </button>
+        </div>
+
         {/* Right: Power/Score filter & counter */}
         <div className="flex items-center gap-2">
           <button
@@ -101,7 +156,7 @@ export function FilterBar({ filters, onChange, totalCount, filteredCount }: Filt
               type="button"
               onClick={reset}
               className="flex items-center gap-1 rounded-xl border border-rose-500/40 bg-rose-500/10 px-2.5 py-1.5 text-xs font-bold text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer uppercase"
-              title="Réinitialiser les filtres"
+              title="Réinitialiser les filtres et le tri"
             >
               <X className="size-3" />
               <span>RESET</span>

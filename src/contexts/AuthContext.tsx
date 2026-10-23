@@ -7,15 +7,21 @@ import {
   useState,
   useCallback,
 } from "react"
-import type { User, Session, AuthError } from "@supabase/supabase-js"
+import type { User, Session } from "@supabase/supabase-js"
 import { supabase } from "@/lib/supabase"
+
+const FIXED_PASSWORD = "beddex_trainer_access"
+
+function toEmail(username: string): string {
+  const clean = username.trim().toLowerCase()
+  return clean.includes("@") ? clean : `${clean}@beddex.internal`
+}
 
 interface AuthContextValue {
   user: User | null
   session: Session | null
   loading: boolean
-  signIn: (email: string, password: string) => Promise<AuthError | null>
-  signUp: (email: string, password: string) => Promise<{ error: AuthError | null; needsConfirmation: boolean }>
+  signInOrCreate: (username: string) => Promise<{ error: { message: string } | null }>
   signOut: () => Promise<void>
 }
 
@@ -58,29 +64,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe()
   }, [])
 
-  const signIn = useCallback(async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (data?.session?.access_token && typeof document !== "undefined") {
-      document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
-    }
-    return error
-  }, [])
+  const signInOrCreate = useCallback(async (username: string) => {
+    try {
+      // 1. Appelle l'API serveur pour créer ou synchroniser le compte sans supprimer de données
+      const res = await fetch("/api/auth/prepare-user", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username }),
+      })
 
-  const signUp = useCallback(async (email: string, password: string) => {
-    const origin = typeof window !== "undefined" ? window.location.origin : ""
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: origin ? `${origin}/auth/callback` : undefined,
-      },
-    })
-    if (data?.session?.access_token && typeof document !== "undefined") {
-      document.cookie = `sb-access-token=${data.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
-    }
-    return {
-      error,
-      needsConfirmation: !error && !data.session,
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        return { error: { message: data.error || "Erreur lors de la préparation du profil." } }
+      }
+
+      // 2. Connexion standard via Supabase
+      const email = data.email || toEmail(username)
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password: FIXED_PASSWORD,
+      })
+
+      if (signInError) {
+        return { error: { message: signInError.message } }
+      }
+
+      if (signInData?.session?.access_token && typeof document !== "undefined") {
+        document.cookie = `sb-access-token=${signInData.session.access_token}; path=/; max-age=${60 * 60 * 24 * 7}; SameSite=Lax`
+      }
+
+      return { error: null }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Impossible de contacter le serveur d'authentification."
+      return { error: { message } }
     }
   }, [])
 
@@ -92,7 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, signInOrCreate, signOut }}>
       {children}
     </AuthContext.Provider>
   )
@@ -103,4 +119,3 @@ export function useAuth(): AuthContextValue {
   if (!ctx) throw new Error("useAuth must be used inside <AuthProvider>")
   return ctx
 }
-
